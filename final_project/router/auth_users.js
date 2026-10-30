@@ -1,8 +1,7 @@
-
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
-const books = require('./booksdb.js');
+let books = require('./booksdb.js');
 const regd_users = express.Router();
 
 const SECRET = 'fingerprint_customer';
@@ -21,7 +20,7 @@ const authenticatedUser = (username, password) => {
   );
 };
 
-// Login
+// Task 7 / Task 8: Login
 regd_users.post('/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -43,17 +42,22 @@ regd_users.post('/login', (req, res) => {
     { expiresIn: '1h' }
   );
 
+  req.session.authorization = {
+    accessToken: token,
+    username
+  };
+
   return res.status(200).json({
     message: 'User successfully logged in',
     token
   });
 });
 
-// Add or update a book review
+// Task 8 / Task 9: Add or update a book review
 regd_users.put('/auth/review/:isbn', (req, res) => {
   const isbn = req.params.isbn;
-  const username = req.user.username;
-  const review = req.body.review;
+  const username = req.user ? req.user.username : (req.session.authorization ? req.session.authorization.username : null);
+  const review = req.query.review || req.body.review;
 
   if (!books[isbn]) {
     return res.status(404).json({
@@ -61,13 +65,13 @@ regd_users.put('/auth/review/:isbn', (req, res) => {
     });
   }
 
-  if (typeof review !== 'string' || !review.trim()) {
+  if (!review || (typeof review === 'string' && !review.trim())) {
     return res.status(400).json({
       message: 'A valid review is required'
     });
   }
 
-  books[isbn].reviews[username] = review.trim();
+  books[isbn].reviews[username] = typeof review === 'string' ? review.trim() : review;
 
   return res.status(200).json({
     message: 'Review added or updated successfully',
@@ -75,10 +79,10 @@ regd_users.put('/auth/review/:isbn', (req, res) => {
   });
 });
 
-// Delete a book review
+// Task 9 / Task 10: Delete a book review
 regd_users.delete('/auth/review/:isbn', (req, res) => {
   const isbn = req.params.isbn;
-  const username = req.user.username;
+  const username = req.user ? req.user.username : (req.session.authorization ? req.session.authorization.username : null);
 
   if (!books[isbn]) {
     return res.status(404).json({
@@ -86,9 +90,7 @@ regd_users.delete('/auth/review/:isbn', (req, res) => {
     });
   }
 
-  if (!Object.prototype.hasOwnProperty.call(
-    books[isbn].reviews, username
-  )) {
+  if (!books[isbn].reviews || !books[isbn].reviews[username]) {
     return res.status(404).json({
       message: 'Review not found'
     });

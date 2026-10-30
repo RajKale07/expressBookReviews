@@ -1,4 +1,3 @@
-
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const session = require('express-session');
@@ -24,17 +23,24 @@ app.use(
 
 // Authentication middleware
 app.use('/customer/auth/*', (req, res, next) => {
-    const authHeader = req.headers.authorization;
+    let token = null;
 
-    if (!authHeader) {
+    if (req.session && req.session.authorization) {
+        token = req.session.authorization['accessToken'];
+    }
+
+    if (!token && req.headers['authorization']) {
+        const authHeader = req.headers['authorization'];
+        token = authHeader.startsWith('Bearer ')
+            ? authHeader.substring(7)
+            : authHeader;
+    }
+
+    if (!token) {
         return res.status(401).json({
             message: 'Authentication token is required'
         });
     }
-
-    const token = authHeader.startsWith('Bearer ')
-        ? authHeader.substring(7)
-        : authHeader;
 
     jwt.verify(token, SECRET, (err, decoded) => {
         if (err) {
